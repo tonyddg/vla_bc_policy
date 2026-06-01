@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 import numpy as np
 import torch
 
@@ -106,3 +106,40 @@ def depth_to_pointcloud(
 
     return points_world
 
+def get_random_pi0_lerobot_batch(
+    output_dim: Optional[int],
+    vec_obs_dim: int,
+    img_obs_dim: dict[str, int],
+    b: int,
+
+    image_size: tuple[int, int] = (128, 128),
+    device: Optional[torch.device] = None,
+    dtype: torch.dtype = torch.float32,
+):
+    """
+    根据 get_pi0_lerobot_dataspec 的输出结果，随机生成一个 mock batch
+    """
+
+    h, w = image_size
+
+    obs = {}
+
+    obs[VECTION_OBS_KEY] = torch.randn(
+        b, vec_obs_dim,
+        device = device, dtype = dtype,
+    )
+
+    for camera_name, in_channels in img_obs_dim.items():
+        obs[camera_name] = torch.randn(
+            b, in_channels, h, w,
+            device = device, dtype = dtype,
+        )
+
+    if output_dim is not None:
+        action = torch.randn(
+            b, output_dim, device = device, dtype = dtype,
+        )
+    else:
+        action = None
+
+    return obs, action

@@ -4,8 +4,7 @@ import torch
 from torch import nn
 
 from vla_bc_policy.encoder import get_encoder, EncoderType
-from vla_bc_policy.dataset.pi0_lerobot_datamodule import get_random_pi0_lerobot_batch
-from vla_bc_policy.dataset.utility import VECTION_OBS_KEY
+from vla_bc_policy.dataset.utility import VECTION_OBS_KEY, get_random_pi0_lerobot_batch
 
 from vla_bc_policy.model.res_mlp_decoder import ResMlpDecoder
 from vla_bc_policy.model.utility import NormType, ActivateFnType, get_model_output_shape
@@ -155,8 +154,15 @@ if __name__ == "__main__":
                 "resnet", {}, 64
             ),
         },
-        vector_out_feat = 128,
-        vector_mlp_layers = [256],
+        vector_out_feat = 1024,
+        vector_encoder_type = "res_mlp",
+        vector_encoder_kwargs = dict(
+            hidden_dim = 1024,
+            num_blocks = 2,
+            expansion = 2,
+            dropout_rate = 0.1,
+            is_output_proj = False
+        ),
         dropout_rate = 0.05
     )
 

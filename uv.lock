@@ -4279,43 +4279,42 @@ name = "vla-bc-policy"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "datasets" },
-    { name = "h5py" },
-    { name = "lerobot" },
     { name = "lightning" },
     { name = "numpy" },
-    { name = "optuna" },
-    { name = "optuna-integration" },
-    { name = "rich" },
     { name = "setuptools" },
-    { name = "tensorboard" },
     { name = "torch" },
     { name = "tyro" },
 ]
 
-[package.dev-dependencies]
-dev = [
+[package.optional-dependencies]
+train = [
+    { name = "datasets" },
+    { name = "h5py" },
+    { name = "lerobot" },
     { name = "matplotlib" },
+    { name = "optuna" },
+    { name = "optuna-integration" },
+    { name = "rich" },
+    { name = "tensorboard" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "datasets", specifier = "==3.6.0" },
-    { name = "h5py", specifier = ">=3.16.0" },
-    { name = "lerobot", git = "https://github.com/huggingface/lerobot?rev=0cf864870cf29f4738d3ade893e6fd13fbd7cdb5" },
+    { name = "datasets", marker = "extra == 'train'", specifier = "==3.6.0" },
+    { name = "h5py", marker = "extra == 'train'", specifier = ">=3.16.0" },
+    { name = "lerobot", marker = "extra == 'train'", git = "https://github.com/huggingface/lerobot?rev=0cf864870cf29f4738d3ade893e6fd13fbd7cdb5" },
     { name = "lightning", specifier = ">=2.6.4" },
+    { name = "matplotlib", marker = "extra == 'train'", specifier = ">=3.10.9" },
     { name = "numpy", specifier = ">=1.22.4,<2.0.0" },
-    { name = "optuna", specifier = ">=4.8.0" },
-    { name = "optuna-integration", specifier = ">=4.8.0" },
-    { name = "rich", specifier = ">=14.0.0" },
+    { name = "optuna", marker = "extra == 'train'", specifier = ">=4.8.0" },
+    { name = "optuna-integration", marker = "extra == 'train'", specifier = ">=4.8.0" },
+    { name = "rich", marker = "extra == 'train'", specifier = ">=14.0.0" },
     { name = "setuptools", specifier = "<82" },
-    { name = "tensorboard", specifier = ">=2.20.0" },
+    { name = "tensorboard", marker = "extra == 'train'", specifier = ">=2.20.0" },
     { name = "torch", specifier = ">=2.5.1" },
     { name = "tyro", specifier = ">=0.9.5" },
 ]
-
-[package.metadata.requires-dev]
-dev = [{ name = "matplotlib", specifier = ">=3.10.9" }]
+provides-extras = ["train"]
 
 [[package]]
 name = "wandb"
