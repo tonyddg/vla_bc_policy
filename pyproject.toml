@@ -35,4 +35,5 @@ train = [
     "optuna-integration>=4.8.0",
     "tensorboard>=2.20.0",
     "matplotlib>=3.10.9",
+    "dotenv>=0.9.9",
 ]

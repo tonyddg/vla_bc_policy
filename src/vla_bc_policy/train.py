@@ -24,12 +24,16 @@ def get_trainer(
 
     from lightning.pytorch.callbacks import (ModelCheckpoint, EarlyStopping, RichProgressBar, LearningRateMonitor)
     from lightning.pytorch.loggers import (TensorBoardLogger)
+    
+    import dotenv
+    import os
+    dotenv.load_dotenv()
 
     monitor_metrics = f"val_{key_metrics_name}"
 
-    OUTPUT_DIR = Path(vla_bc_policy.__file__).parent / "../../output"
+    VLA_BC_POLICY_OUTPUT_DIR = os.environ.get("VLA_BC_POLICY_OUTPUT_DIR", (Path(vla_bc_policy.__file__).parent / "../../output").as_posix())
     logger = TensorBoardLogger(
-        OUTPUT_DIR, 
+        VLA_BC_POLICY_OUTPUT_DIR, 
         name
     )
 
