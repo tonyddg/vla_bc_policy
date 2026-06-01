@@ -20,9 +20,14 @@ class Pi0LeRobotDataset(Dataset):
         vec_obs_keys: Sequence[str] = [
             "pi0_actions_ref", "pi0_state", "qpos", "last_action"
         ],
+        # 使用 tanh 压缩具有显著离群点的特征 tanh(v/s), 键值为 s
+        vec_obs_compress_key: dict[str, float] = {
+            "qvel": 1.5 
+        },
     ):
         self.ds = LeRobotDataset(repo_id, root = root)
         self.vec_obs_keys = vec_obs_keys
+        self.vec_obs_compress_key = vec_obs_compress_key
         self.camera_info_list = camera_info_list
 
         if root is None:
@@ -70,6 +75,9 @@ class Pi0LeRobotDataset(Dataset):
             assert state is not None, f"{vec_obs_key} may not in sample with {list(sample.keys())}"
 
             state = torch.as_tensor(state).float().flatten()
+            if vec_obs_key in self.vec_obs_compress_key:
+                state = torch.tanh(state / self.vec_obs_compress_key[vec_obs_key])
+
             state_list.append(state)
         return torch.cat(state_list)
 
