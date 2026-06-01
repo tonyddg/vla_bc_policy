@@ -1,0 +1,38 @@
+[project]
+name = "vla-bc-policy"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "tonyddg", email = "799052200@qq.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.5.1",
+    "numpy>=1.22.4,<2.0.0",
+    "tyro>=0.9.5",
+    "rich>=14.0.0",
+    "lerobot",
+    "tensorboard>=2.20.0",
+    "lightning>=2.6.4",
+    "h5py>=3.16.0",
+    "datasets==3.6.0",
+    "optuna>=4.8.0",
+    "optuna-integration>=4.8.0",
+    "setuptools<82",
+]
+
+[project.scripts]
+vla-bc-policy = "vla_bc_policy:main"
+
+[tool.uv.sources]
+lerobot = { git = "https://github.com/huggingface/lerobot", rev = "0cf864870cf29f4738d3ade893e6fd13fbd7cdb5" }
+
+[build-system]
+requires = ["uv_build>=0.10.11,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.10.9",
+]
