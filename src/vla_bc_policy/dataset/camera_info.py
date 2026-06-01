@@ -81,6 +81,12 @@ def camera_info_list_to_dict_list(camera_info_list: list[CameraInfo]):
         dict_list.append(asdict(camera_info))
     return dict_list
 
+def dict_list_to_camera_info_list(dict_list: list[dict]):
+    camera_info_list: list[CameraInfo] = []
+    for camera_info_dict in dict_list:
+        camera_info_list.append(CameraInfo(**camera_info_dict))
+    return camera_info_list
+
 ###
 
 FetchStandardCameraInfos = [

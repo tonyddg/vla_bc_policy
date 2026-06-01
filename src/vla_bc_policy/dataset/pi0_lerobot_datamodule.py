@@ -10,7 +10,7 @@ from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME
 
 from lightning import pytorch as pl
 
-from vla_bc_policy.dataset.camera_info import CameraInfo
+from vla_bc_policy.dataset.camera_info import CameraInfo, dict_list_to_camera_info_list
 from vla_bc_policy.dataset.pi0_lerobot_dataset import Pi0LeRobotDataset
 from vla_bc_policy.dataset.utility import ACTION_SAMPLE_KEY, get_random_pi0_lerobot_batch
 
@@ -56,6 +56,10 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
         vec_obs_keys: Sequence[str] = [
             "pi0_actions_ref", "pi0_state", "qpos", "last_action"
         ],
+        # 使用 tanh 压缩具有显著离群点的特征 tanh(v/s), 键值为 s
+        vec_obs_compress_key: dict[str, float] = {
+            "qvel": 1.5 
+        },
 
         batch_size: int = 512,
         num_workers: int = 8,
@@ -71,11 +75,10 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
         self.save_hyperparameters()
 
         # self.camera_info_list = camera_info_list
-        self.camera_info_list = []
-        for camera_info_dict in camera_info_list:
-            self.camera_info_list.append(CameraInfo(**camera_info_dict))
+        self.camera_info_list = dict_list_to_camera_info_list(camera_info_list)
         self.repo_id = repo_id
         self.vec_obs_keys = vec_obs_keys
+        self.vec_obs_compress_key = vec_obs_compress_key
 
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -118,7 +121,8 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
         if self.full_dataset is None:
             self.full_dataset = Pi0LeRobotDataset(
                 self.repo_id, self.camera_info_list, 
-                vec_obs_keys = self.vec_obs_keys
+                vec_obs_keys = self.vec_obs_keys,
+                vec_obs_compress_key = self.vec_obs_compress_key
             )
 
         if self.train_dataset is None or self.val_dataset is None:
