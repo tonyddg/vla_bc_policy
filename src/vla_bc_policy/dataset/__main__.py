@@ -37,69 +37,69 @@ if __name__ == "__main__":
     print(f"t = 1: last action {obs_1['vector']} action: {action_1}")
     print(f"t = 2: last action {obs_2['vector']} action: {action_2}")
 
-    # obs, action = ds[SAMPLE_IDX]
+    obs, action = ds[SAMPLE_IDX]
 
-    # print(f"action: {action}")
-    # print(f"vec: {obs[VECTION_OBS_KEY]}")
-    # img = torch.as_tensor(obs[TestCameraInfos[0].camera_name])
-    # img = torch.permute(img, (1, 2, 0))
-    # img_xyz = img[:, :, :3]
-    # img_rgb = img[:, :, 3:]
+    print(f"action: {action}")
+    print(f"vec: {obs[VECTION_OBS_KEY]}")
+    img = torch.as_tensor(obs[TestCameraInfos[0].camera_name])
+    img = torch.permute(img, (1, 2, 0))
+    img_xyz = img[:, :, :3]
+    img_rgb = img[:, :, 3:]
 
-    # fig, axes = plt.subplot_mosaic([[0, 1, "color_bar"], [2, 3, "color_bar"]], width_ratios = [1, 1, 0.2])
-    # fig.set_layout_engine("compressed")
+    fig, axes = plt.subplot_mosaic([[0, 1, "color_bar"], [2, 3, "color_bar"]], width_ratios = [1, 1, 0.2])
+    fig.set_layout_engine("compressed")
     
-    # # vmin = img_xyz.min().item()
-    # # vmax = img_xyz.max().item()
-    # for i in range(3):
-    #     axe_image = axes[i].imshow(
-    #         img_xyz[:, :, i].detach().cpu().numpy(), cmap="viridis",
-    #         # vmin = vmin, vmax = vmax
-    #     )
-    #     axes[i].set_xticks([])
-    #     axes[i].set_yticks([])
-    # fig.colorbar(axe_image, cax = axes["color_bar"], label="Pixel value") # type: ignore
+    # vmin = img_xyz.min().item()
+    # vmax = img_xyz.max().item()
+    for i in range(3):
+        axe_image = axes[i].imshow(
+            img_xyz[:, :, i].detach().cpu().numpy(), cmap="viridis",
+            # vmin = vmin, vmax = vmax
+        )
+        axes[i].set_xticks([])
+        axes[i].set_yticks([])
+    fig.colorbar(axe_image, cax = axes["color_bar"], label="Pixel value") # type: ignore
 
-    # axes[3].imshow(img_rgb.detach().cpu().numpy())
-    # axes[3].set_xticks([])
-    # axes[3].set_yticks([])
+    axes[3].imshow(img_rgb.detach().cpu().numpy())
+    axes[3].set_xticks([])
+    axes[3].set_yticks([])
 
-    # fig.savefig("output/sample.png")
-    # plt.close(fig)
-    # del ds
-    # print("#### Test Pi0LeRobotDataset Done ####")
+    fig.savefig("output/sample.png")
+    plt.close(fig)
+    del ds
+    print("#### Test Pi0LeRobotDataset Done ####")
 
-    # ###
+    ###
 
-    # print("#### Test Pi0LeRobotDataModule Start ####")
+    print("#### Test Pi0LeRobotDataModule Start ####")
 
-    # dm = Pi0LeRobotDataModule(
-    #     "trajectories_tidy_house_all_bc_state_rot_6d_action_axis_angle",
-    #     camera_info_list_to_dict_list(TestCameraInfos),
-    #     debug_config = False
-    # )
-    # print(f"output_dim: {dm.output_dim}, vec_obs_dim: {dm.vec_obs_dim}, img_obs_dim: {dm.img_obs_dim}")
-    # dm.setup()
-    # train_dataloader = dm.train_dataloader()
-    # obs_batch, action_batch = next(iter(train_dataloader))
+    dm = Pi0LeRobotDataModule(
+        "trajectories_tidy_house_all_bc_fix_la_state_rot_6d_action_axis_angle",
+        camera_info_list_to_dict_list(TestCameraInfos),
+        debug_config = False
+    )
+    print(f"output_dim: {dm.output_dim}, vec_obs_dim: {dm.vec_obs_dim}, img_obs_dim: {dm.img_obs_dim}")
+    dm.setup()
+    train_dataloader = dm.train_dataloader()
+    obs_batch, action_batch = next(iter(train_dataloader))
     
-    # print(f"action_batch shape: {action_batch.shape}")
-    # for key, val in obs_batch.items():
-    #     print(f"{key} shape: {val.shape}")
+    print(f"action_batch shape: {action_batch.shape}")
+    for key, val in obs_batch.items():
+        print(f"{key} shape: {val.shape}")
     
-    # print("#### Test Pi0LeRobotDataModule Done ####")
+    print("#### Test Pi0LeRobotDataModule Done ####")
 
-    # ###
+    ###
 
-    # print("#### Test JsonNormalizer Start ####")
+    print("#### Test JsonNormalizer Start ####")
 
-    # normalizer = JsonNormalizer(
-    #     "./output/train_stats.json"
-    # )
-    # obs_norm_batch = normalizer.normalize_obs(obs_batch)
-    # action_norm_batch = normalizer.normalize_action(action_batch)
+    normalizer = JsonNormalizer(
+        "assets/train_stats_depth.json"
+    )
+    obs_norm_batch = normalizer.normalize_obs(obs_batch)
+    action_norm_batch = normalizer.normalize_action(action_batch)
 
-    # print(f"before norm vector: {obs_batch[VECTION_OBS_KEY][0]}")
-    # print(f"after norm vector: {obs_norm_batch[VECTION_OBS_KEY][0]}")
+    print(f"before norm vector: {obs_batch[VECTION_OBS_KEY][0]}")
+    print(f"after norm vector: {obs_norm_batch[VECTION_OBS_KEY][0]}")
 
-    # print("#### Test JsonNormalizer End ####")
+    print("#### Test JsonNormalizer End ####")
