@@ -56,6 +56,7 @@ def regression_metrics(
     low: float = -1.0,
     high: float = 1.0,
     thresholds: Sequence[float] = (0.05, 0.10, 0.20), 
+    quantiles: Sequence[float] = (0.90, 0.95, 0.99),
 ):
     """
     y_pred: torch.Tensor, shape [B] / [B, 1] / [B, D] / ...
@@ -76,27 +77,30 @@ def regression_metrics(
     rmse = torch.sqrt(mse)
     mae = torch.mean(abs_error)
 
-    # 阈值准确率
-    acc_dict = {}
-    for t in thresholds:
-        acc_dict[f"Acc@{t}"] = torch.mean((abs_error < t).float())
+    pred_dim = y_pred.reshape(y_pred.shape[0], -1)
+    true_dim = y_true.reshape(y_true.shape[0], -1)
+    num_dims = pred_dim.shape[1]
 
     metrics = {
         "MAE": mae.item(),
         "RMSE": rmse.item(),
     }
 
-    for k, v in acc_dict.items():
-        metrics[k] = v.item()
+    # 阈值准确率
+    for t in thresholds:
+        metrics[f"Acc@{t}"] = torch.mean((abs_error < t).float()).item()
+    # 全样本阈值准确率
+    sample_abs_error = torch.abs(pred_dim - true_dim)
+    for t in thresholds:
+        sample_correct = torch.all(sample_abs_error < t, dim=1)
+        metrics[f"SampleAcc@{t}"] = sample_correct.float().mean().item()
+    # 长尾误差特性
+    flat_abs_err = abs_error.reshape(-1).float()
+    for q in quantiles:
+        metrics[f"ErrorP@{int(q * 100)}"] = torch.quantile(flat_abs_err, q).item()
 
     # 按给定索引区间统计 MSE / RMSE
     if groups is not None:
-        pred_dim = y_pred.reshape(y_pred.shape[0], -1)
-        true_dim = y_true.reshape(y_true.shape[0], -1)
-        clip_dim = torch.clamp(pred_dim, low, high)
-
-        num_dims = pred_dim.shape[1]
-
         for name, index_range in groups.items():
             a, b = index_range
 
@@ -105,7 +109,6 @@ def regression_metrics(
 
             group_pred = pred_dim[:, a:b]
             group_true = true_dim[:, a:b]
-            group_clip = clip_dim[:, a:b]
 
             group_error = group_pred - group_true
 
@@ -119,14 +122,9 @@ def regression_metrics(
             metrics[f"{name}_MAE"] = group_mae.item()
             metrics[f"{name}_RMSE"] = group_rmse.item()
 
-            metrics[f"{name}_out_of_range_ratio"] = group_out_ratio.item()
-            metrics[f"{name}_pred_max"] = group_pred.max().item()
-            metrics[f"{name}_pred_min"] = group_pred.min().item()
-
-            group_clip_error = group_clip - group_true
-            group_clip_mse = torch.mean(group_clip_error ** 2)
-            group_clip_rmse = torch.sqrt(group_clip_mse)
-            metrics[f"{name}_clip_RMSE"] = group_clip_rmse.item()
+            metrics[f"{name}_out_of_limit_ratio"] = group_out_ratio.item()
+            # metrics[f"{name}_pred_max"] = group_pred.max().item()
+            # metrics[f"{name}_pred_min"] = group_pred.min().item()
 
     return metrics
 
