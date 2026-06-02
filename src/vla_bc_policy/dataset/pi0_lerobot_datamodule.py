@@ -64,6 +64,9 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
         batch_size: int = 512,
         num_workers: int = 8,
 
+        # 使用独立的验证集
+        val_repo_id: Optional[str] = None, 
+        # 没有独立验证集时将从训练集划分
         val_ratio: float = 0.1,
         split_seed: int = 42,
 
@@ -83,6 +86,7 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
+        self.val_repo_id = val_repo_id
         self.val_ratio = val_ratio
         self.split_seed = split_seed
 
@@ -118,24 +122,37 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
 
     def setup(self, stage: str | None = None) -> None:
         
-        if self.full_dataset is None:
-            self.full_dataset = Pi0LeRobotDataset(
-                self.repo_id, self.camera_info_list, 
-                vec_obs_keys = self.vec_obs_keys,
-                vec_obs_compress_key = self.vec_obs_compress_key
-            )
+        if self.val_repo_id is None:
+            if self.full_dataset is None:
+                self.full_dataset = Pi0LeRobotDataset(
+                    self.repo_id, self.camera_info_list, 
+                    vec_obs_keys = self.vec_obs_keys,
+                    vec_obs_compress_key = self.vec_obs_compress_key
+                )
 
-        if self.train_dataset is None or self.val_dataset is None:
-            full_len = len(self.full_dataset)
-            val_len = int(full_len * self.val_ratio)
-            print(f"setup lerobot dataset with full len: {full_len}, val len: {val_len}")
+            if self.train_dataset is None or self.val_dataset is None:
+                full_len = len(self.full_dataset)
+                val_len = int(full_len * self.val_ratio)
+                print(f"setup lerobot dataset with full len: {full_len}, val len: {val_len}")
 
-            generator = torch.Generator().manual_seed(self.split_seed)
-            self.train_dataset, self.val_dataset = random_split(
-                self.full_dataset,
-                [full_len - val_len, val_len],
-                generator = generator
-            )
+                generator = torch.Generator().manual_seed(self.split_seed)
+                self.train_dataset, self.val_dataset = random_split(
+                    self.full_dataset,
+                    [full_len - val_len, val_len],
+                    generator = generator
+                )
+        else:
+            if self.train_dataset is None or self.val_dataset is None:
+                self.train_dataset = Pi0LeRobotDataset(
+                    self.repo_id, self.camera_info_list, 
+                    vec_obs_keys = self.vec_obs_keys,
+                    vec_obs_compress_key = self.vec_obs_compress_key
+                )
+                self.val_dataset = Pi0LeRobotDataset(
+                    self.val_repo_id, self.camera_info_list, 
+                    vec_obs_keys = self.vec_obs_keys,
+                    vec_obs_compress_key = self.vec_obs_compress_key
+                )
 
     def train_dataloader(self) -> Any:
         assert self.train_dataset is not None, "Not setup for train dataset"

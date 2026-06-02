@@ -176,20 +176,23 @@ def compute_pi0_lerobot_stats_from_datamodule(
         if max_batches is not None and num_batches >= max_batches:
             break
 
-    assert dm.full_dataset is not None
+    assert dm.train_dataset is not None
     stats = {
         "repo_id": dm.repo_id,
         "split": {
             "val_ratio": dm.val_ratio,
             "split_seed": dm.split_seed,
-            "full_len": len(dm.full_dataset), # type: ignore
-            "train_len": len(dm.train_dataset), # type: ignore
-            "val_len": len(dm.val_dataset), # type: ignore
+            "val_repo_id": dm.val_repo_id,
+
+            # "full_len": len(dm.full_dataset), # type: ignore
+            "train_len": len(dm.train_dataset), 
+            # "val_len": len(dm.val_dataset), # type: ignore
             "num_samples_seen": num_samples_seen,
             "num_batches_seen": num_batches,
             "max_batches": max_batches,
 
-            "vec_obs_keys": dm.full_dataset.vec_obs_keys
+            "vec_obs_keys": dm.train_dataset.sample_to_obs.vec_obs_keys, # type: ignore
+            "vec_obs_compress_key": dm.train_dataset.sample_to_obs.vec_obs_compress_key # type: ignore
         },
         "obs": {
             key: stat.to_dict()
@@ -215,14 +218,17 @@ if __name__ == "__main__":
     from vla_bc_policy.dataset.camera_info import FetchStandardCameraInfos, camera_info_list_to_dict_list
 
     dm = Pi0LeRobotDataModule(
-        "trajectories_tidy_house_all_bc_fix_la_state_rot_6d_action_axis_angle",
-        camera_info_list_to_dict_list(FetchStandardCameraInfos),
-        debug_config = False
+        repo_id = "trajectories_tidy_house_all_bc_with_qvel_state_rot_6d_action_axis_angle_train",
+        val_repo_id = "trajectories_tidy_house_all_bc_with_qvel_state_rot_6d_action_axis_angle_val",
+
+        camera_info_list = camera_info_list_to_dict_list(FetchStandardCameraInfos),
+        debug_config = False,
+        vec_obs_keys = ["pi0_actions_ref", "pi0_state", "qpos", "qvel"],
     )
 
     stats = compute_pi0_lerobot_stats_from_datamodule(
         dm,
-        output_path = "output/train_stats.json",
+        output_path = "output/train_stats_qvel.json",
         batch_size = 512,
         num_workers = 16,
 
