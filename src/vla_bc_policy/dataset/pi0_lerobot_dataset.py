@@ -1,14 +1,18 @@
 from pathlib import Path
 from typing import Optional, Sequence, Union
 
-import h5py
-
 import torch
 from torch.utils.data import Dataset
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, HF_LEROBOT_HOME
 
 from vla_bc_policy.dataset.camera_info import CameraInfo
 from vla_bc_policy.dataset.utility import ACTION_SAMPLE_KEY, VECTION_OBS_KEY
+from vla_bc_policy.dataset.sample_to_obs_config import Sample2ObsConfig
+
+try:
+    import h5py
+    from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, HF_LEROBOT_HOME
+except:
+    raise ImportError("For dataset loading, install [train] optional group")
 
 class Pi0LeRobotDataset(Dataset):
     def __init__(
@@ -26,9 +30,11 @@ class Pi0LeRobotDataset(Dataset):
         },
     ):
         self.ds = LeRobotDataset(repo_id, root = root)
-        self.vec_obs_keys = vec_obs_keys
-        self.vec_obs_compress_key = vec_obs_compress_key
-        self.camera_info_list = camera_info_list
+        self.sample_to_obs = Sample2ObsConfig(
+            camera_info_list = camera_info_list, 
+            vec_obs_keys = vec_obs_keys,
+            vec_obs_compress_key = vec_obs_compress_key
+        )
 
         if root is None:
             root = HF_LEROBOT_HOME
@@ -59,48 +65,12 @@ class Pi0LeRobotDataset(Dataset):
             sample[key] = torch.from_numpy(dataset[frame_idx])
         return sample
 
-    def _get_image_obs(self, sample):
-        image_obs = {}
-        for camera_info in self.camera_info_list:
-            # obs[camera_info.camera_name] = camera_info.sample2img(sample)
-            camera_img = camera_info.sample2img(sample)
-            image_obs[camera_info.camera_name] = camera_img
-        return image_obs
-    
-    def _get_1d_vector_obs(self, sample):
-        # 合并一维特征
-        state_list = []
-        for vec_obs_key in self.vec_obs_keys:
-            state = sample.get(vec_obs_key)
-            assert state is not None, f"{vec_obs_key} may not in sample with {list(sample.keys())}"
-
-            state = torch.as_tensor(state).float().flatten()
-            if vec_obs_key in self.vec_obs_compress_key:
-                state = torch.tanh(state / self.vec_obs_compress_key[vec_obs_key])
-
-            state_list.append(state)
-        return torch.cat(state_list)
-
-    def _get_dict_vector_obs(self, sample):
-        # 以字典形式组织一维特征
-        vec_obs = {}
-        for vec_obs_key in self.vec_obs_keys:
-            state = sample.get(vec_obs_key)
-            assert state is not None, f"{vec_obs_key} may not in sample with {list(sample.keys())}"
-
-            state = torch.as_tensor(state).float().flatten()
-            vec_obs[vec_obs_key] = state
-        return vec_obs
-
     def __getitem__(self, idx):
 
         sample = self.ds[idx]
-        sample = self._load_detach_sample(sample)        
-        obs = self._get_image_obs(sample)
-        vec_obs = self._get_1d_vector_obs(sample)
+        sample = self._load_detach_sample(sample)    
 
-        # 整合一维特征与图像
-        obs[VECTION_OBS_KEY] = vec_obs
+        obs = self.sample_to_obs.get_obs(sample)
         # 策略真实动作
         action = sample[ACTION_SAMPLE_KEY]
 
