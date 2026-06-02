@@ -11,6 +11,7 @@ from vla_bc_policy.dataset.normalizer import JsonNormalizer, NormalizeMethod
 from vla_bc_policy.model.extractor import ExtractorType, ExtractorDict
 from vla_bc_policy.model.mlp_decoder import MlpDecoder
 from vla_bc_policy.model.res_mlp_decoder import ResMlpDecoder
+from vla_bc_policy.model.multi_head_decoder import MultiHeadDecoder
 from vla_bc_policy.model.utility import regression_metrics, LRScheduleType, WarmupCosineLR
 
 class PolicyModule(pl.LightningModule):
@@ -31,6 +32,10 @@ class PolicyModule(pl.LightningModule):
             torso = (7, 8),
             base = (8, 10)
         ),
+        # 使用多头输出
+        use_multi_head_decoder: bool = False,
+        # 多头输出配置
+        multi_head_decoder_config: Optional[Dict[str, Any]] = None,
 
         # 优化器参数
         lr: float = 2e-3,
@@ -67,8 +72,14 @@ class PolicyModule(pl.LightningModule):
             extractor_kwargs["vec_obs_dim"] = vec_obs_dim
             extractor_kwargs["img_obs_dim"] = img_obs_dim
 
-            decoder_kwargs = dict(decoder_kwargs)
-            decoder_kwargs["num_out_feats"] = output_dim
+            if use_multi_head_decoder:
+                assert multi_head_decoder_config is not None
+                multi_head_decoder_config = dict(multi_head_decoder_config)
+                multi_head_decoder_config["num_out_feats"] = output_dim
+                multi_head_decoder_config["num_in_feats"] = decoder_kwargs["num_out_feats"]
+            else:
+                decoder_kwargs = dict(decoder_kwargs)
+                decoder_kwargs["num_out_feats"] = output_dim
 
         # 将 __init__ 参数保存到字典 self.hparams 中
         self.save_hyperparameters(ignore = ["data_module", ])
@@ -84,6 +95,11 @@ class PolicyModule(pl.LightningModule):
             raise RuntimeError(f"Unknown decoder type: {decoder_type}")
         
         self.action_group = action_group
+        if use_multi_head_decoder:
+            assert multi_head_decoder_config is not None
+            self.multi_head_decoder = MultiHeadDecoder(**multi_head_decoder_config)
+        else:
+            self.multi_head_decoder = None
 
         # 优化器参数
         self.lr = lr
@@ -166,7 +182,12 @@ class PolicyModule(pl.LightningModule):
         obs = self.normalizer.normalize_obs(obs)
 
         feat = self.extractor(obs)
-        return self.decoder(feat)
+        feat = self.decoder(feat)
+
+        if self.multi_head_decoder is None:
+            return feat
+        else:
+            return self.multi_head_decoder(feat)
 
     @torch.no_grad()
     def predict_action(self, obs: Dict[str, torch.Tensor]) -> torch.Tensor:
