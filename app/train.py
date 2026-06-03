@@ -35,7 +35,7 @@ if __name__ == "__main__":
                     "resnet", {}, 512
                 ),
             },
-            dropout_rate = 0.2,
+            dropout_rate = 0.1,
 
             vector_out_feat = 1024,
             vector_encoder_type = "res_mlp",
@@ -43,7 +43,7 @@ if __name__ == "__main__":
                 hidden_dim = 1024,
                 num_blocks = 2,
                 expansion = 2,
-                dropout_rate = 0.2,
+                dropout_rate = 0.1,
                 is_output_proj = False
             ),
         ),
@@ -53,7 +53,7 @@ if __name__ == "__main__":
             hidden_dim = 2048,
             num_blocks = 2,
             expansion = 2,
-            dropout_rate = 0.15,
+            dropout_rate = 0.1,
             # 接输出头
             is_output_proj = False,
             num_out_feats = 2048,
@@ -87,6 +87,7 @@ if __name__ == "__main__":
         stats_path = "assets/train_stats_compress_qvel.json",
         data_module = dm,
         loss_type = "smooth_l1",
+        key_metrics = "MAE",
 
         lr = 3e-4,
         lr_schedule_type = "warmup_cos",

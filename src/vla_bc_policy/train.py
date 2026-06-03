@@ -12,7 +12,7 @@ def get_trainer(
     overfit_batches: float = 0.0,
     precision: Optional[str] = None,
 
-    key_metrics_name: str = "RMSE",
+    key_metrics_name: str = "MAE",
     patience: Optional[int] = 10,
 
     gradient_clip_val: Optional[float] = 1.0,
