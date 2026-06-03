@@ -8,12 +8,6 @@ from vla_bc_policy.dataset.camera_info import CameraInfo
 from vla_bc_policy.dataset.utility import ACTION_SAMPLE_KEY, VECTION_OBS_KEY
 from vla_bc_policy.dataset.sample_to_obs_config import Sample2ObsConfig
 
-try:
-    import h5py
-    from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, HF_LEROBOT_HOME
-except:
-    raise ImportError("For dataset loading, install [train] optional group")
-
 class Pi0LeRobotDataset(Dataset):
     def __init__(
         self, 
@@ -29,6 +23,11 @@ class Pi0LeRobotDataset(Dataset):
             "qvel": 1.5 
         },
     ):
+        try:
+            from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, HF_LEROBOT_HOME
+        except:
+            raise ImportError("For dataset loading, install [train] optional group")
+
         self.ds = LeRobotDataset(repo_id, root = root)
         self.sample_to_obs = Sample2ObsConfig(
             camera_info_list = camera_info_list, 
@@ -48,6 +47,11 @@ class Pi0LeRobotDataset(Dataset):
         return len(self.ds)
     
     def _get_h5(self):
+        try:
+            import h5py
+        except:
+            raise ImportError("For dataset loading, install [train] optional group")
+
         if self._h5 is None:
             self._h5 = h5py.File(self.dataset_dir_path / "detach.h5", "r", swmr=True)
         return self._h5
