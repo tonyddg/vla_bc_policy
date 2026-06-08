@@ -6,7 +6,6 @@ from typing import Any, Sequence
 
 import torch
 from torch.utils.data import random_split, DataLoader
-from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME
 
 from lightning import pytorch as pl
 
@@ -27,6 +26,7 @@ def get_pi0_lerobot_dataspec(
     从 Lerobot 元数据中获取一个 sample 的特征维度
     '''
     if root is None:
+        from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME
         root = HF_LEROBOT_HOME
     if isinstance(root, str):
         root = Path(root)

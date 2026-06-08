@@ -14,13 +14,15 @@ class Sample2ObsConfig:
         vec_obs_keys: Sequence[str], 
         vec_obs_compress_key: dict[str, float],
 
-        is_concat_vec_obs: bool = True
+        is_concat_vec_obs: bool = True,
+        is_mshab_sample: bool = False,
     ) -> None:
         self.camera_info_list = camera_info_list
         self.vec_obs_keys = vec_obs_keys
         self.vec_obs_compress_key = vec_obs_compress_key
 
         self.is_concat_vec_obs = is_concat_vec_obs
+        self.is_mshab_sample = is_mshab_sample
 
     def _get_image_obs(
         self,
@@ -29,7 +31,7 @@ class Sample2ObsConfig:
         image_obs = {}
         for camera_info in self.camera_info_list:
             # obs[camera_info.camera_name] = camera_info.sample2img(sample)
-            camera_img = camera_info.sample2img(sample)
+            camera_img = camera_info.sample2img(sample, is_mshab_sample = self.is_mshab_sample)
             image_obs[camera_info.camera_name] = camera_img
         return image_obs
 
@@ -43,12 +45,19 @@ class Sample2ObsConfig:
             state = sample.get(vec_obs_key)
             assert state is not None, f"{vec_obs_key} may not in sample with {list(sample.keys())}"
 
-            state = torch.as_tensor(state).float().flatten()
+            if self.is_mshab_sample:
+                state = torch.as_tensor(state).float().flatten(start_dim = 1)
+            else:
+                state = torch.as_tensor(state).float().flatten()
+            
             if vec_obs_key in self.vec_obs_compress_key:
                 state = torch.tanh(state / self.vec_obs_compress_key[vec_obs_key])
 
             state_list.append(state)
-        return torch.cat(state_list)
+        if self.is_mshab_sample:
+            return torch.cat(state_list, dim = 1)
+        else:
+            return torch.cat(state_list, dim = 0)
 
     def _get_dict_vector_obs(
         self, 

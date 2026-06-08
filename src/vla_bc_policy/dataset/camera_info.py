@@ -44,10 +44,14 @@ class CameraInfo:
         
         return in_channels
 
-    def sample2img(self, sample: Mapping[str, torch.Tensor]):
+    def sample2img(
+        self, 
+        sample: Mapping[str, torch.Tensor],
+        is_mshab_sample: bool = False # sample 是否来自 MSHAB, 将带有 Batch 维度且 RGB 为 uint8
+    ):
         
         assert self.sample_keys is not None
-        
+
         # 处理深度图
         depth_part = sample[self.sample_keys[0]]
         depth_part = depth_part.type(torch.float32) / 1000.0
@@ -65,11 +69,20 @@ class CameraInfo:
             # 纯深度图但使用 tanh 依据 z_far 压缩到 [0, 1] (类 mshab 处理方法)
             depth_part = 1 - torch.tanh(depth_part / self.z_far)
         # 从 h5 中读取, 还需要将 H, W, C 转为 C, H, W
-        depth_part = torch.permute(depth_part, (2, 0, 1))
+        if is_mshab_sample:
+            depth_part = torch.permute(depth_part, (0, 3, 1, 2))
+        else:
+            depth_part = torch.permute(depth_part, (2, 0, 1))
+
         # 拼接 rgb (Lerobot 读取已转为 C, H, W, float)
         if self.is_include_rgb:
             rgb_part = sample[self.sample_keys[2]]
-            res = torch.cat([depth_part, rgb_part], dim = 0)
+            if is_mshab_sample:
+                rgb_part = rgb_part.to(torch.float32) / 255.0
+                rgb_part = torch.permute(rgb_part, (0, 3, 1, 2))
+                res = torch.cat([depth_part, rgb_part], dim = 1)
+            else:
+                res = torch.cat([depth_part, rgb_part], dim = 0)
         else:
             res = depth_part
         return res
