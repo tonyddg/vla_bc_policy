@@ -214,24 +214,39 @@ def compute_pi0_lerobot_stats_from_datamodule(
 
     return stats
 
-if __name__ == "__main__":
+def main(
+    repo_id: str = "trajectories_tidy_house_all_bc_with_qvel_state_rot_6d_action_axis_angle_train",
+    output_path: Union[str, Path] = "output/train_stats.json",
+    
+    is_split_val: bool = False,
+    vec_obs_keys: list[str] = ["pi0_actions_ref", "pi0_state", "qpos", "qvel"],
+    vec_obs_compress_key: dict[str, float] = { "qvel": 1.5 },
+
+    num_workers: int = 16
+):
     from vla_bc_policy.dataset.camera_info import FetchStandardCameraInfos, camera_info_list_to_dict_list
 
     dm = Pi0LeRobotDataModule(
-        repo_id = "trajectories_tidy_house_all_bc_with_qvel_state_rot_6d_action_axis_angle_train",
-        val_repo_id = "trajectories_tidy_house_all_bc_with_qvel_state_rot_6d_action_axis_angle_val",
+        repo_id = repo_id,
+        val_repo_id = None,
+        is_split_val = is_split_val,
 
         camera_info_list = camera_info_list_to_dict_list(FetchStandardCameraInfos),
         debug_config = False,
-        vec_obs_keys = ["pi0_actions_ref", "pi0_state", "qpos", "qvel"],
+        vec_obs_keys = vec_obs_keys,
+        vec_obs_compress_key = vec_obs_compress_key
     )
 
     stats = compute_pi0_lerobot_stats_from_datamodule(
         dm,
-        output_path = "output/train_stats_qvel.json",
+        output_path = output_path,
         batch_size = 512,
-        num_workers = 16,
+        num_workers = num_workers,
 
         # 调试时可以先开：
         # max_batches = 10,
     )
+
+if __name__ == "__main__":
+    import tyro
+    tyro.cli(main)

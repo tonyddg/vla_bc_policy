@@ -5,13 +5,21 @@ from vla_bc_policy.dataset import Pi0LeRobotDataModule, FetchStandardCameraInfos
 from vla_bc_policy.model.lit_model import PolicyModule
 from vla_bc_policy.train import get_trainer
 
-if __name__ == "__main__":
-
-    torch.set_float32_matmul_precision('high')
+def main(
+    repo_id: str,
+    stats_path: str,
+    exp_name: str = "full_res_mlp",
+    # 启动低精度但更快的训练方式
+    is_fast_train: bool = False
+):
+    if is_fast_train:
+        torch.set_float32_matmul_precision('medium')
+    else:
+        torch.set_float32_matmul_precision('high')
 
     dm = Pi0LeRobotDataModule(
-        repo_id = "trajectories_tidy_house_all_bc_with_qvel_state_rot_6d_action_axis_angle_train",
-        val_repo_id = "trajectories_tidy_house_all_bc_with_qvel_state_rot_6d_action_axis_angle_val",
+        repo_id = repo_id + "_train",
+        val_repo_id = repo_id + "_val",
 
         camera_info_list = camera_info_list_to_dict_list(FetchStandardCameraInfos),
         debug_config = False,
@@ -84,7 +92,7 @@ if __name__ == "__main__":
             )
         )),
 
-        stats_path = "assets/train_stats_compress_qvel.json",
+        stats_path = stats_path,
         data_module = dm,
         loss_type = "smooth_l1",
         key_metrics = "MAE",
@@ -99,8 +107,13 @@ if __name__ == "__main__":
     )
     
     trainer = get_trainer(
-        "full_res_mlp", precision = "32", 
+        exp_name, precision = "32" if not is_fast_train else "bf16-mixed", 
         max_epochs = 150, patience = None,
         gradient_clip_val = 2.0
     )
     trainer.fit(pm, datamodule = dm)
+
+if __name__ == "__main__":
+
+    import tyro
+    tyro.cli(main)
