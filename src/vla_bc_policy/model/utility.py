@@ -76,6 +76,7 @@ def regression_metrics(
     mse = torch.mean(error ** 2)
     rmse = torch.sqrt(mse)
     mae = torch.mean(abs_error)
+    medae = torch.median(abs_error)
 
     pred_dim = y_pred.reshape(y_pred.shape[0], -1)
     true_dim = y_true.reshape(y_true.shape[0], -1)
@@ -84,6 +85,7 @@ def regression_metrics(
     metrics = {
         "MAE": mae.item(),
         "RMSE": rmse.item(),
+        "MedAE": medae.item()
     }
 
     # 阈值准确率

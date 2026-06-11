@@ -66,7 +66,8 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
 
         # 使用独立的验证集
         val_repo_id: Optional[str] = None, 
-        # 没有独立验证集时将从训练集划分
+        # 没有独立验证集时将从训练集划分 (没有提供独立验证集时有效)
+        is_split_val: bool = False,
         val_ratio: float = 0.1,
         split_seed: int = 42,
 
@@ -87,6 +88,8 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
 
         self.val_repo_id = val_repo_id
+
+        self.is_split_val = is_split_val
         self.val_ratio = val_ratio
         self.split_seed = split_seed
 
@@ -122,7 +125,7 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
 
     def setup(self, stage: str | None = None) -> None:
         
-        if self.val_repo_id is None:
+        if self.val_repo_id is None and self.is_split_val:
             if self.full_dataset is None:
                 self.full_dataset = Pi0LeRobotDataset(
                     self.repo_id, self.camera_info_list, 
@@ -148,11 +151,12 @@ class Pi0LeRobotDataModule(pl.LightningDataModule):
                     vec_obs_keys = self.vec_obs_keys,
                     vec_obs_compress_key = self.vec_obs_compress_key
                 )
-                self.val_dataset = Pi0LeRobotDataset(
-                    self.val_repo_id, self.camera_info_list, 
-                    vec_obs_keys = self.vec_obs_keys,
-                    vec_obs_compress_key = self.vec_obs_compress_key
-                )
+                if self.val_repo_id is not None:
+                    self.val_dataset = Pi0LeRobotDataset(
+                        self.val_repo_id, self.camera_info_list, 
+                        vec_obs_keys = self.vec_obs_keys,
+                        vec_obs_compress_key = self.vec_obs_compress_key
+                    )
 
     def train_dataloader(self) -> Any:
         assert self.train_dataset is not None, "Not setup for train dataset"

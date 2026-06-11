@@ -22,6 +22,8 @@ class Pi0LeRobotDataset(Dataset):
         vec_obs_compress_key: dict[str, float] = {
             "qvel": 1.5 
         },
+        # MSHAB 数据不会主动剪切动作到 [-1, 1]
+        clip_action: bool = True,
     ):
         try:
             from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, HF_LEROBOT_HOME
@@ -34,6 +36,8 @@ class Pi0LeRobotDataset(Dataset):
             vec_obs_keys = vec_obs_keys,
             vec_obs_compress_key = vec_obs_compress_key
         )
+
+        self.clip_action = clip_action
 
         if root is None:
             root = HF_LEROBOT_HOME
@@ -77,6 +81,8 @@ class Pi0LeRobotDataset(Dataset):
         obs = self.sample_to_obs.get_obs(sample)
         # 策略真实动作
         action = sample[ACTION_SAMPLE_KEY]
+        if self.clip_action:
+            action = torch.clip(action, -1, 1)
 
         return obs, action
 
