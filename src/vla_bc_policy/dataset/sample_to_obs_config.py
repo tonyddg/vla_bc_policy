@@ -53,6 +53,13 @@ class Sample2ObsConfig:
             if vec_obs_key in self.vec_obs_compress_key:
                 state = torch.tanh(state / self.vec_obs_compress_key[vec_obs_key])
 
+            # 临时补丁, 修复 pi0_actions_ref 的夹爪动作超过 [-1, 1] 而没有截断的问题, 应当在后续删除该代码
+            if vec_obs_key in ["pi0_actions_ref", ]:
+                if self.is_mshab_sample:
+                    state[:, -1] = torch.clip(state[:, -1], -1, 1)
+                else:
+                    state[-1] = torch.clip(state[-1], -1, 1)
+
             state_list.append(state)
         if self.is_mshab_sample:
             return torch.cat(state_list, dim = 1)
