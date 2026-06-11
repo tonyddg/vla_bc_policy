@@ -31,9 +31,9 @@ def get_trainer(
 
     monitor_metrics = f"val_{key_metrics_name}"
 
-    VLA_BC_POLICY_OUTPUT_DIR = os.environ.get("VLA_BC_POLICY_OUTPUT_DIR", (Path(vla_bc_policy.__file__).parent / "../../output").as_posix())
+    BC_POLICY_CKPT_DIR = os.environ.get("BC_POLICY_CKPT_DIR", (Path(vla_bc_policy.__file__).parent / "../../output").as_posix())
     logger = TensorBoardLogger(
-        VLA_BC_POLICY_OUTPUT_DIR, 
+        BC_POLICY_CKPT_DIR, 
         name
     )
 
