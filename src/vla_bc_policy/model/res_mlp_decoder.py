@@ -40,6 +40,7 @@ class ResMlpDecoder(nn.Module):
         num_blocks: int = 2,
         expansion: float = 4,
         dropout_rate: float = 0.1,
+        
         is_output_proj: bool = True,
     ) -> None:
         '''__init__ MLP 解码器
@@ -51,6 +52,8 @@ class ResMlpDecoder(nn.Module):
             num_blocks (int, optional): RES MLP 块的个数. Defaults to 2.
             expansion (float, optional): RES MLP 块的膨胀系数. Defaults to 4.
             dropout_rate (float, optional): RES MLP 块的 dropout. Defaults to 0.1.
+
+            is_output_proj (bool, optional): 输出层是否有额外 Linear 用于将 hidden feat 调整为 output feat，当编码器输出即结果时可设为 True，取 False 时 hidden feat 要等于 output feat. Defaults to True.
         '''
         super().__init__()
 

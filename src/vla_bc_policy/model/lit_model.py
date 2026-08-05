@@ -11,7 +11,7 @@ from vla_bc_policy.dataset.normalizer import JsonNormalizer, NormalizeMethod
 from vla_bc_policy.model.extractor import ExtractorType, ExtractorDict
 from vla_bc_policy.model.mlp_decoder import MlpDecoder
 from vla_bc_policy.model.res_mlp_decoder import ResMlpDecoder
-from vla_bc_policy.model.multi_head_decoder import MultiHeadDecoder
+from vla_bc_policy.model.action_head import MultiActionHead
 from vla_bc_policy.model.utility import regression_metrics, LRScheduleType, WarmupCosineLR
 
 class PolicyModule(pl.LightningModule):
@@ -97,7 +97,7 @@ class PolicyModule(pl.LightningModule):
         self.action_group = action_group
         if use_multi_head_decoder:
             assert multi_head_decoder_config is not None
-            self.multi_head_decoder = MultiHeadDecoder(**multi_head_decoder_config)
+            self.multi_head_decoder = MultiActionHead(**multi_head_decoder_config)
         else:
             self.multi_head_decoder = None
 
@@ -173,9 +173,13 @@ class PolicyModule(pl.LightningModule):
                     "frequency": 1,
                 },
             }
-        else: 
+        elif self.lr_schedule_type == "none":
             # 单个优化器
             return use_optimizer
+        else:
+            raise ValueError(
+                f"Unknown lr_schedule_type: {self.lr_schedule_type}"
+            )
 
     def forward(self, obs: Dict[str, torch.Tensor]) -> torch.Tensor:
         # print(f"obs type {type(obs)}")

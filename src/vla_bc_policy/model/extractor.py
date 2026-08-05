@@ -57,7 +57,7 @@ class MulViewPostMixedExtractor(nn.Module):
             # 使用 MLP 调整特征通道, 防止特征比重过大
             shrink_model = MlpDecoder(
                 encoder_output_shape[0], val[2], 
-                is_pure_output = False,
+                is_output_proj = False,
                 dropout_rate = dropout_rate,
                 norm_type = norm_type,
                 activate_fn_type = activate_fn_type
@@ -117,7 +117,7 @@ class VectorOnlyExtractor(nn.Module):
             vector_modified_feat,
             mlp_layers = vector_mlp_layers,
 
-            is_pure_output = False,
+            is_output_proj = False,
             dropout_rate = dropout_rate,
             norm_type = norm_type,
             activate_fn_type = activate_fn_type

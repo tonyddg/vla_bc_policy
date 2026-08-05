@@ -4,7 +4,7 @@ from torch import nn
 
 from vla_bc_policy.model.mlp_decoder import MlpDecoder
 
-class MultiHeadDecoder(nn.Module):
+class MultiActionHead(nn.Module):
     def __init__(
         self,
         num_in_feats: int,
@@ -63,3 +63,6 @@ class MultiHeadDecoder(nn.Module):
             start, end = idx_range
             y[:, start : end] = self.heads[key](X)
         return y
+
+from typing import TypeAlias
+SingleActionHead: TypeAlias = MlpDecoder

@@ -2,7 +2,7 @@ import torch
 
 from vla_bc_policy.dataset import Pi0LeRobotDataModule, FetchStandardCameraInfos, camera_info_list_to_dict_list
 
-from vla_bc_policy.model.lit_model import PolicyModule
+from vla_bc_policy.model.choice_policy import ChoicePolicy
 from vla_bc_policy.train import get_trainer
 
 def main(
@@ -32,7 +32,7 @@ def main(
             "qvel": 1.5 
         },
     )
-    pm = PolicyModule(
+    pm = ChoicePolicy(
         "post_mix",
         extractor_kwargs = dict(
             image_backbone_cfg = {
@@ -67,34 +67,47 @@ def main(
             num_out_feats = 2048,
         ),
 
-        use_multi_head_decoder = True,
-        multi_head_decoder_config = dict(head_decoder_config = dict(
+        action_head_type = "multi",
+        action_head_kwargs = dict(head_decoder_config = dict(
             joint = (
                 (0, 7),
                 dict(
                     mlp_layers = [256],
-                    dropout_rate = 0.0
+                    dropout_rate = 0.0,
+                    is_output_proj = True
                 )
             ),
             torso = (
                 (7, 8),
                 dict(
                     mlp_layers = [256],
-                    dropout_rate = 0.0
+                    dropout_rate = 0.0,
+                    is_output_proj = True
                 )
             ),
             base = (
                 (8, 10),
                 dict(
                     mlp_layers = [256],
-                    dropout_rate = 0.0
+                    dropout_rate = 0.0,
+                    is_output_proj = True
                 )
             )
         )),
 
+        num_proposals = 4,
+        score_pred_kwargs = dict(
+            mlp_layers = [256],
+            dropout_rate = 0.0,
+            is_output_proj = True
+        ),
+
         stats_path = stats_path,
         data_module = dm,
-        loss_type = "smooth_l1",
+
+        distance_loss_type = "smooth_l1",
+        score_loss_type = "mse",
+
         key_metrics = "MAE",
 
         lr = 3e-4,

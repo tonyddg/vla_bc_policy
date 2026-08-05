@@ -11,6 +11,13 @@ ActivateFnDict = {
     "gelu": nn.GELU
 }
 
+LossFnType = Literal["mse", "l1", "smooth_l1"]
+LossFnDict = {
+    "mse": nn.MSELoss,
+    "l1": nn.L1Loss,
+    "smooth_l1": nn.SmoothL1Loss
+}
+
 def get_model_output_shape(
     model: nn.Module,
     model_input: torch.Tensor,
