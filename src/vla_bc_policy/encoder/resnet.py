@@ -85,7 +85,9 @@ class ResNetEncoder(nn.Module):
         self,
         in_channels: int = 3,
         # 取 [3, 4, 6, 3] 变为 ResNet-34
-        block_repeat: list[int] = [2, 2, 2, 2]
+        block_repeat: list[int] = [2, 2, 2, 2],
+        # 取 [32, 32, 64, 128, 256] 变为半宽形式的 ResNet
+        feat_channels: list[int] = [64, 64, 128, 256, 512]
     ):
         super().__init__()
 
@@ -95,11 +97,19 @@ class ResNetEncoder(nn.Module):
             nn.MaxPool2d(3, 2, 1)
         )
 
-        # 第一个 Stage 没有对特征尺寸减半
-        s2 = ResNetStage(64, 64, block_repeat[0], False)
-        s3 = ResNetStage(64, 128, block_repeat[1], True)
-        s4 = ResNetStage(128, 256, block_repeat[2], True)
-        s5 = ResNetStage(256, 512, block_repeat[3], True)
+        
+        stage_list = []
+        for i in range(4):
+            stage_list.append(
+                ResNetStage(
+                    feat_channels[i], feat_channels[i + 1], block_repeat[i], 
+                    False if i == 0 else True # 第一个 Stage 没有对特征尺寸减半
+                )
+            )
+        # s2 = ResNetStage(64, 64, block_repeat[0], False)
+        # s3 = ResNetStage(64, 128, block_repeat[1], True)
+        # s4 = ResNetStage(128, 256, block_repeat[2], True)
+        # s5 = ResNetStage(256, 512, block_repeat[3], True)
 
         dense = nn.Sequential(
             # 同样使用了全局均值池化将图像转为特征
@@ -107,9 +117,12 @@ class ResNetEncoder(nn.Module):
             nn.Flatten(),
         )
 
-        self.model = nn.Sequential(
-            head, s2, s3, s4, s5, dense
-        )
+        stage_list.insert(0, head)
+        stage_list.append(dense)
+        self.model = nn.Sequential(*stage_list)
+        # self.model = nn.Sequential(
+        #     head, s2, s3, s4, s5, dense
+        # )
 
         self.init_weight()
 
