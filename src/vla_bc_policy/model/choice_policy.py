@@ -60,6 +60,21 @@ class ChoicePolicy(pl.LightningModule):
         # loss 超参数
         score_loss_weight: float = 1.0,
         score_loss_warmup_ratio: float = 0.05, # 前 0.05 的 step 逐渐增大
+        # # 风格损失, 暂时排除绝对位置动作
+        # style_loss_weight: Optional[float] = 1e-3, # 所有头的风格损失
+        # style_loss_type: LossFnType = "mse",
+        # style_group: Dict[str, tuple[int, int]] = dict(
+        #     joint = (0, 7),
+        #     base = (8, 10)
+        # ),
+        # # 幅度过小的动作不进入风格监督
+        # energy_threshold_q: float = 0.10,
+        # target_style: list[list[float]] = [
+        #     [0.8, 0.2],
+        #     [0.6, 0.4],
+        #     [0.4, 0.6],
+        #     [0.2, 0.8],
+        # ],
 
         # 学习率调度参数
         lr_schedule_type: LRScheduleType = "none",
@@ -149,11 +164,20 @@ class ChoicePolicy(pl.LightningModule):
         # loss 函数 (reduction = "none", 输出不改变形状)
         self.distance_loss_fn = LossFnDict[distance_loss_type](reduction = "none")
         self.score_loss_fn = LossFnDict[score_loss_type](reduction = "none")
+        # self.style_loss_fn = LossFnDict[style_loss_type](reduction = "none")
 
         # loss 超参数
         self.score_loss_weight = score_loss_weight
         self.score_loss_warmup_ratio = score_loss_warmup_ratio
-        self.max_freq_std = math.sqrt(self.num_proposals - 1) / self.num_proposals
+        if self.num_proposals > 1:
+            self.max_freq_std = math.sqrt(self.num_proposals - 1) / self.num_proposals
+        else:
+            self.max_freq_std = 1.0
+
+        # self.style_loss_weight = style_loss_weight
+        # self.style_group = style_group
+        # self.target_style = target_style
+        # self.energy_threshold_q = energy_threshold_q
 
         # 标准化器
         self.normalizer = JsonNormalizer(
@@ -167,17 +191,6 @@ class ChoicePolicy(pl.LightningModule):
         if data_module is not None:
             obs, action = data_module.get_random_batch()
             self.example_input_array = dict(obs = obs)
-
-    # def get_score_loss_weight(self) -> float:
-    #     total_steps = self.trainer.estimated_stepping_batches
-
-    #     warmup_steps = max(
-    #         int(total_steps * self.score_loss_warmup_ratio),
-    #         1,
-    #     )
-
-    #     progress = min(self.global_step / warmup_steps, 1.0)
-    #     return self.score_loss_weight * progress
 
     def configure_optimizers(self): # type: ignore
 
@@ -298,9 +311,11 @@ class ChoicePolicy(pl.LightningModule):
         batch_rows = torch.arange(batch_size, device = pred_action.device)
 
         if self.num_proposals > 0:
-            # 计算各个分支预测动作与真实动作的距离
-            gt_action = gt_action.unsqueeze(1).expand(-1, self.num_proposals, -1) # (B, P, A)
-            action_error = torch.as_tensor(self.distance_loss_fn(pred_action, gt_action)) # (B, P, A)
+            action_error = torch.as_tensor(self.distance_loss_fn(
+                pred_action, 
+                # 复制扩展为相同形状计算 loss
+                gt_action.unsqueeze(1).expand(-1, self.num_proposals, -1)
+            )) # (B, P, A)
             action_distance = torch.mean(action_error, dim = 2) # (B, P)
             gt_score = action_distance.detach()
 
@@ -318,8 +333,28 @@ class ChoicePolicy(pl.LightningModule):
             score_loss = torch.as_tensor(self.score_loss_fn(pred_score, gt_score))
             score_loss = torch.mean(score_loss)
 
+            # # 风格正则损失 (总是对各个预测动作施加) (风格损失与 WTA 的动作损失冲突)
+            # proposal_style, proposal_total_energy = compute_group_energy(
+            #     pred_action, self.style_group
+            # )
+            # oracle_style, oracle_total_energy = compute_group_energy(
+            #     gt_action[:, None, :], self.style_group
+            # )
+            # oracle_total_energy = oracle_total_energy.squeeze(1) # (B,)
+            # oracle_energy_threshold = torch.quantile(oracle_total_energy, self.energy_threshold_q)
+            # energy_mask = oracle_total_energy > oracle_energy_threshold # (B,)
+
+            # target_style = torch.tensor(self.target_style, dtype = torch.float32, device = self.device).unsqueeze(0)
+            # style_error = self.style_loss_fn(proposal_style, target_style).mean(dim = (1, 2)) # (B,)
+            # if energy_mask.any():
+            #     style_loss = style_error[energy_mask].mean()
+            # else:
+            #     style_loss = pred_action.new_zeros(())
+
             # 总 loss
             loss = action_loss + score_loss * self.score_loss_weight
+            # if self.style_loss_weight is not None:
+            #     loss += self.style_loss_weight * style_loss
 
             ##################
             # 额外信息
@@ -338,12 +373,12 @@ class ChoicePolicy(pl.LightningModule):
             selected_freq = torch.bincount(
                 selected_proposal_idx, minlength = self.num_proposals,
             ).float() / selected_proposal_idx.numel()
-            selected_freq_std = torch.std(selected_freq)
+            selected_freq_std = torch.std(selected_freq, correction = 0)
             # 正确预测被训练的分支, 检查哪个分支被经常训练到
             oracle_freq = torch.bincount(
                 oracle_proposal_idx, minlength = self.num_proposals,
             ).float() / oracle_proposal_idx.numel()
-            oracle_freq_std = torch.std(oracle_freq)
+            oracle_freq_std = torch.std(oracle_freq, correction = 0)
 
             # pred_action: (B, P, A)
             pairwise_distance = torch.cdist(
@@ -367,6 +402,7 @@ class ChoicePolicy(pl.LightningModule):
             loss_info = dict(
                 action_loss = action_loss.detach(),
                 score_loss = score_loss.detach(),
+                # style_loss = style_loss.detach(),
                 # 基于预测距离选择动作时, 相对真实距离选择动作时, 额外的误差大小
                 selector_regret = torch.mean(selected_action_distance - oracle_action_distance).detach(),
                 # 模型输出选择的分支, 越接近 1 越说明其他分支无法发挥作用
@@ -376,7 +412,14 @@ class ChoicePolicy(pl.LightningModule):
                 # 所有 proposal 的两两距离的平均值
                 mean_pairwise_distance = mean_pairwise_distance.detach(),
                 # 所有 proposal 的两两距离的最小值
-                min_pairwise_distance = min_pairwise_distance.detach()
+                min_pairwise_distance = min_pairwise_distance.detach(),
+
+                # # 能量下限
+                # oracle_energy_threshold = oracle_energy_threshold.detach(),
+                # # 平均能量
+                # oracle_energy_mean = oracle_total_energy.mean().detach(),
+                # # 受到风格监督的动作数量
+                # active_ratio = energy_mask.float().mean().detach(),
             )
 
         else:
