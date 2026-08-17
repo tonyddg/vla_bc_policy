@@ -36,4 +36,5 @@ train = [
     "tensorboard>=2.20.0",
     "matplotlib>=3.10.9",
     "dotenv>=0.9.9",
+    "scikit-learn>=1.7.2",
 ]
