@@ -222,6 +222,7 @@ def main(
     vec_obs_keys: list[str] = ["pi0_actions_ref", "pi0_state", "qpos", "qvel"],
     vec_obs_compress_key: dict[str, float] = { "qvel": 1.5 },
 
+    batch_size: int = 512,
     num_workers: int = 16
 ):
     from vla_bc_policy.dataset.camera_info import FetchStandardCameraInfos, camera_info_list_to_dict_list
@@ -240,7 +241,7 @@ def main(
     stats = compute_pi0_lerobot_stats_from_datamodule(
         dm,
         output_path = output_path,
-        batch_size = 512,
+        batch_size = batch_size,
         num_workers = num_workers,
 
         # 调试时可以先开：

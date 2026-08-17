@@ -138,7 +138,7 @@ class PolicyModule(pl.LightningModule):
     def configure_optimizers(self): # type: ignore
 
         if self.is_use_adam:
-            use_optimizer = optim.Adam(
+            use_optimizer = optim.AdamW(
                 self.parameters(), 
                 lr = self.lr,
                 weight_decay = self.weight_decay
