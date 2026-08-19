@@ -14,6 +14,12 @@ def main(
     exp_name: str = "full_res_mlp",
     num_clusters: int = 8,
 
+    is_shrink_vector: bool = False,
+    is_shrink_decoder: bool = False,
+    is_strong_regulation: bool = False,
+
+    batch_size: int = 256,
+
     # 启动低精度但更快的训练方式
     is_fast_train: bool = False
 ):
@@ -29,7 +35,7 @@ def main(
         camera_info_list = camera_info_list_to_dict_list(FetchStandardCameraInfos),
         debug_config = False,
 
-        batch_size = 512,
+        batch_size = batch_size,
         num_workers = 32,
 
         vec_obs_keys = ["pi0_actions_ref", "pi0_state", "qpos", "qvel"],
@@ -48,28 +54,28 @@ def main(
                     "resnet", {}, 512
                 ),
             },
-            dropout_rate = 0.1,
+            dropout_rate = 0.1 if not is_strong_regulation else 0.15,
 
-            vector_out_feat = 1024,
+            vector_out_feat = 1024 if not is_shrink_vector else 512,
             vector_encoder_type = "res_mlp",
             vector_encoder_kwargs = dict(
-                hidden_dim = 1024,
+                hidden_dim = 1024 if not is_shrink_vector else 512,
                 num_blocks = 2,
                 expansion = 2,
-                dropout_rate = 0.1,
+                dropout_rate = 0.1 if not is_strong_regulation else 0.15,
                 is_output_proj = False
             ),
         ),
 
         decoder_type = "res_mlp",
         decoder_kwargs = dict(
-            hidden_dim = 2048,
-            num_blocks = 2,
+            hidden_dim = 2048 if not is_shrink_decoder else 1024,
+            num_blocks = 2 if not is_shrink_decoder else 1,
             expansion = 2,
-            dropout_rate = 0.1,
+            dropout_rate = 0.1 if not is_strong_regulation else 0.2,
             # 接输出头
             is_output_proj = False,
-            num_out_feats = 2048,
+            num_out_feats = 2048 if not is_shrink_decoder else 1024,
         ),
 
         action_head_type = "multi",
@@ -108,7 +114,9 @@ def main(
             is_output_proj = True
         ),
         use_cluster_class_weights = use_cluster_class_weights,
-        cluster_cls_loss_weight = 0.5,
+        cluster_cls_loss_weight = 0.25,
+        is_soft_cls_target = True,
+        soft_temperature = 0.09, # 基于 K8 统计结果
 
         stats_path = stats_path,
         data_module = dm,
@@ -117,13 +125,13 @@ def main(
 
         key_metrics = "MAE",
 
-        lr = 3e-4,
+        lr = 1e-4,
         lr_schedule_type = "warmup_cos",
         lr_schedule_kwargs = dict(
             warmup_steps_ratio = 0.05,
             min_lr_ratio = 0.01
         ),
-        weight_decay = 1e-4
+        weight_decay = 1e-4 if not is_strong_regulation else 5e-4
     )
     
     trainer = get_trainer(
