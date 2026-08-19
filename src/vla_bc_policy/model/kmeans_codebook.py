@@ -169,7 +169,29 @@ class KMeansCodebook(nn.Module):
             )
             * self.cluster_feature_scales
         )
+    
+    def action_cluster_distance(
+        self,
+        action_norm: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        获取动作到聚类中心的距离
+        action_norm: (B, A)
+        return:      (B, K)
+        """
+        self._check_codebook()
 
+        feature = self.encode_action_feature(
+            action_norm.float()
+        )  # (B, F)
+
+        distance = (
+            feature[:, None, :]
+            - self.cluster_feature_centers[None, :, :]
+        ).square().sum(dim=-1)
+
+        return distance
+    
     @torch.no_grad()
     def assign_action_cluster(
         self,
@@ -180,16 +202,9 @@ class KMeansCodebook(nn.Module):
         action_norm: (B, A)
         return:      (B,)
         """
-        feature = self.encode_action_feature(
-            action_norm.float()
-        )  # (B, F)
-
-        # squared Euclidean distance: (B, K)
-        distance = (
-            feature[:, None, :]
-            - self.cluster_feature_centers[None, :, :]
-        ).square().sum(dim=-1)
-
+        distance = self.action_cluster_distance(
+            action_norm
+        )
         return distance.argmin(dim=1)
 
     def decode_action(
@@ -212,3 +227,43 @@ class KMeansCodebook(nn.Module):
             + residual_normalized
             * self.residual_scale
         )
+
+@torch.no_grad()
+def make_soft_cluster_target(
+    distance: torch.Tensor,
+    temperature: float = 0.1,
+    topk: int = 2,
+) -> torch.Tensor:
+    """
+    构造软分类标签，让相邻的聚类也具有概率
+    distance: (B, K)
+    return:   (B, K)
+    """
+    top_dist, top_idx = torch.topk(
+        distance,
+        k=topk,
+        dim=1,
+        largest=False,
+    )
+
+    # 数值稳定：
+    # 最近 center 的 distance 变为 0
+    top_dist = (
+        top_dist
+        - top_dist[:, :1]
+    )
+
+    top_prob = torch.softmax(
+        -top_dist / temperature,
+        dim=1,
+    )
+
+    soft_target = torch.zeros_like(distance)
+
+    soft_target.scatter_(
+        dim=1,
+        index=top_idx,
+        src=top_prob,
+    )
+
+    return soft_target

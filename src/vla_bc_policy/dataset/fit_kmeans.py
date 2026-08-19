@@ -273,6 +273,31 @@ def fit_and_save_action_kmeans(
         .sqrt()
     )
 
+    # 统计训练聚类特征样本到所有 cluster center 的距离
+    train_distance = (
+        cluster_features[:, None, :]
+        - cluster_feature_centers[None, :, :]
+    ).square().sum(dim=-1)  # (N, K)
+    # 找到样本最近 / 第二近 cluster
+    top2_dist = torch.topk(
+        train_distance,
+        k=2,
+        dim=1,
+        largest=False,
+    ).values
+    # 到第二近 cluster 额外距离的中位数与分布列
+    gap = top2_dist[:, 1] - top2_dist[:, 0]
+    gap_median = gap.median()
+    gap_quantiles = (
+        gap.quantile(
+            torch.tensor(
+                [0.1, 0.25, 0.5, 0.75, 0.9],
+                device=gap.device,
+            )
+        )
+    )
+    # print(tau_80, tau_90, tau_95)
+
     artifact = {
         "schema_version": 1,
         "num_clusters": num_clusters,
@@ -298,6 +323,8 @@ def fit_and_save_action_kmeans(
             cluster_class_weights,
 
         "quantization_rmse": quantization_rmse,
+        "gap_median": gap_median,
+        "gap_quantiles": gap_quantiles,
 
         "cluster_groups": {
             name: [start, end]
@@ -321,7 +348,8 @@ def fit_and_save_action_kmeans(
     print(
         f"K={num_clusters}, "
         f"N={num_samples}, "
-        f"quantization RMSE={quantization_rmse.item():.6f}"
+        f"quantization RMSE={quantization_rmse.item():.6f}, "
+        f"gap_median={gap_median.item():.6f}"
     )
     print(
         "Cluster fraction:",

@@ -15,7 +15,7 @@ from vla_bc_policy.model.mlp_decoder import MlpDecoder
 from vla_bc_policy.model.res_mlp_decoder import ResMlpDecoder
 from vla_bc_policy.model.action_head import MultiActionHead, SingleActionHead
 from vla_bc_policy.model.utility import regression_metrics, LRScheduleType, WarmupCosineLR, LossFnDict, LossFnType
-from vla_bc_policy.model.kmeans_codebook import KMeansCodebook
+from vla_bc_policy.model.kmeans_codebook import KMeansCodebook, make_soft_cluster_target
 
 class BeTPolicy(pl.LightningModule):
     def __init__(
@@ -53,6 +53,9 @@ class BeTPolicy(pl.LightningModule):
         # 是否使用聚类权重
         use_cluster_class_weights: bool = True,
         cluster_cls_loss_weight: float = 0.5,
+        # 是否使用软分类标签
+        is_soft_cls_target: bool = False,
+        soft_temperature: float = 0.09,
 
         # 优化器参数
         lr: float = 2e-3,
@@ -159,6 +162,8 @@ class BeTPolicy(pl.LightningModule):
         # self.cls_loss_fn = nn.CrossEntropyLoss() # 使用 nn.founctional 防止 class weight 没有正确读取时出错
         self.use_cluster_class_weights = use_cluster_class_weights
         self.cluster_cls_loss_weight = cluster_cls_loss_weight
+        self.is_soft_cls_target = is_soft_cls_target
+        self.soft_cls_target_temperature = soft_temperature
 
         # 标准化器
         self.normalizer = JsonNormalizer(
@@ -288,14 +293,39 @@ class BeTPolicy(pl.LightningModule):
         ] # (B, A)
         action_loss = torch.mean(self.distance_loss_fn(selected_action_residual, gt_residual))
 
-        class_weights = None
-        if self.use_cluster_class_weights:
-            class_weights = self.kmeans_codebook.cluster_class_weights
-        cluster_cls_loss = nn.functional.cross_entropy(
-            cluster_cls_logits,
-            gt_cluster_idx,
-            weight = class_weights,
-        )
+        if self.is_soft_cls_target:
+            with torch.no_grad():
+                cluster_distance = (
+                    self.kmeans_codebook
+                    .action_cluster_distance(
+                        gt_action_norm
+                    )
+                )  # (B, K)
+                # 基于距离计算 classifier 的 soft label
+                gt_cluster_prob = (
+                    make_soft_cluster_target(
+                        cluster_distance,
+                        temperature=self.soft_cls_target_temperature,
+                        topk=2,
+                    )
+                )  # (B, K)
+            
+            log_prob = nn.functional.log_softmax(
+                cluster_cls_logits,
+                dim=1,
+            )
+            cluster_cls_loss = -(
+                gt_cluster_prob * log_prob
+            ).sum(dim=1).mean()
+        else:
+            class_weights = None
+            if self.use_cluster_class_weights:
+                class_weights = self.kmeans_codebook.cluster_class_weights
+            cluster_cls_loss = nn.functional.cross_entropy(
+                cluster_cls_logits,
+                gt_cluster_idx,
+                weight = class_weights,
+            )
         # 用 log(K) 归一化，使不同 K 的初始 CE 更可比。
         normalized_cluster_loss = (
             cluster_cls_loss
@@ -325,11 +355,17 @@ class BeTPolicy(pl.LightningModule):
             cluster_accuracy = (
                 pred_cluster_idx == gt_cluster_idx
             ).float().mean()
+            # 可对比的硬交叉熵
+            hard_cluster_cls_loss = nn.functional.cross_entropy(
+                cluster_cls_logits,
+                gt_cluster_idx,
+            ) / math.log(self.num_clusters)
 
         loss_info = {
             "action_loss": action_loss.detach(),
             "normalized_cluster_loss": normalized_cluster_loss.detach(),
-            "cluster_accuracy": cluster_accuracy.detach()
+            "cluster_accuracy": cluster_accuracy.detach(),
+            "hard_cluster_cls_loss": hard_cluster_cls_loss.detach()
         }
 
         return loss, pred_action_norm, loss_info
